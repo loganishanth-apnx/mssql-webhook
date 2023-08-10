@@ -45,7 +45,7 @@ def failover(resource_client,client, resource_group_name,locations,recovery_regi
                 operation = client.replication_links.begin_failover(replica_server_rg, replica_server, database_name,database_link_id)
            
                 logging.info("Primary - server : ",server_name,"-----   Seconday - server : ",replica_server)
-                # sleep(15)
+                sleep(120)
                 # Get all virtual machines in the resource group
                 vms = compute_client.virtual_machines.list(rec_res_group_name)
 
