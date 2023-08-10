@@ -16,8 +16,8 @@ import logging
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 logging.basicConfig(filename="newfile.log",
-format='%(asctime)s %(message)s',
-filemode='w')
+                    format='%(asctime)s %(levelname)s: %(message)s',
+                    level=logging.DEBUG)  # Set the logging level to DEBUG
 
 def failover(resource_client,client, resource_group_name,locations,recovery_region,server_name,replica_server,web_client,compute_client,network_client,rec_res_group_name):
     server=client.servers.list_by_resource_group(resource_group_name)
@@ -70,31 +70,29 @@ def failover(resource_client,client, resource_group_name,locations,recovery_regi
 
                         try:
                             session = winrm.Session(host, auth=(user, password), transport='ntlm')
-
+                            logging.info(session)
                             file_path = r'C:\Users\azure\Downloads\eShopOnWeb-main\eShopOnWeb-main\src\Web\appsettings.json'
-
+        
                             cmd = f'if exist "{file_path}" (echo true) else (echo false)'
                             result = session.run_cmd(cmd)
-
+                            logging.info(result)
+        
                             if result.std_out.strip() == b'true':
                                 old_db_name = server_name+'.database.windows.net'
                                 new_db_name = replica_server+'.database.windows.net'
-
-                                cmd = f'Get-Content -Path "{file_path}"'
-                                result = session.run_ps(cmd)
-                                file_contents = result.std_out.decode('utf-8')
-
-                                file_contents = file_contents.replace(old_db_name, new_db_name)
-
-                                cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
-                                session.run_ps(cmd)
-                                try: 
-                                # Reboot the remote host
-                                    cmd = 'Restart-Computer'
+                                for i in range(5):
+                                    sleep(20)
+                                    cmd = f'Get-Content -Path "{file_path}"'
+                                    result = session.run_ps(cmd)
+                                    logging.info(result)
+                                    file_contents = result.std_out.decode('utf-8')
+            
+                                    file_contents = file_contents.replace(old_db_name, new_db_name)
+            
+                                    cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
                                     session.run_ps(cmd)
-                                except:
-                                    logging.info()
-                                
+                                    logging.info(session)
+        
                                 logging.info('File Updated')
                                 return func.HttpResponse(
                                     "200",
