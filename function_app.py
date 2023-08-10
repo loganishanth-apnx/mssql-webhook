@@ -12,8 +12,12 @@ import os
 from time import sleep
 import requests
 import logging
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
+
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+logging.basicConfig(filename="newfile.log",
+format='%(asctime)s %(message)s',
+filemode='w')
 
 def failover(resource_client,client, resource_group_name,locations,recovery_region,server_name,replica_server,web_client,compute_client,network_client,rec_res_group_name):
     server=client.servers.list_by_resource_group(resource_group_name)
@@ -84,11 +88,13 @@ def failover(resource_client,client, resource_group_name,locations,recovery_regi
 
                                 cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
                                 session.run_ps(cmd)
-
+                                try: 
                                 # Reboot the remote host
-                                cmd = 'Restart-Computer'
-                                session.run_ps(cmd)
-
+                                    cmd = 'Restart-Computer'
+                                    session.run_ps(cmd)
+                                except:
+                                    logging.info()
+                                
                                 logging.info('File Updated')
                                 return func.HttpResponse(
                                     "200",
@@ -132,6 +138,9 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                     subscription_id = item_data['cloudResourceReferenceId'].split(
                         "/")[2]
                     break
+                logging.basicConfig(filename="newfile.log",
+                    format='%(asctime)s %(message)s',
+                    filemode='w')
 
         # Send GET requests and print the JSON responses
         json2 = requests.get(primary_resource_metadata_url).json()
@@ -158,7 +167,6 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
         client_id = os.environ["CLIENT_ID"]
         client_secret = os.environ["CLIENT_SECRET"]
         tenant_id = os.environ["TENANT_ID"]
-
         # Create a client secret credential object
         credential = ClientSecretCredential(
             client_id=client_id,
