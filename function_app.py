@@ -15,7 +15,7 @@ import logging
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 
-def failover(resource_client,client, resource_group_name,locations,recovery_region,server_name,replica_server):
+def failover(resource_client,client, resource_group_name,locations,recovery_region,server_name,replica_server,web_client,compute_client,network_client,rec_res_group_name):
     server=client.servers.list_by_resource_group(resource_group_name)
     # logging.info(server)
     server_list=[]
@@ -41,6 +41,64 @@ def failover(resource_client,client, resource_group_name,locations,recovery_regi
                 operation = client.replication_links.begin_failover(replica_server_rg, replica_server, database_name,database_link_id)
            
                 logging.info("Primary - server : ",server_name,"-----   Seconday - server : ",replica_server)
+                # sleep(15)
+                # Get all virtual machines in the resource group
+                vms = compute_client.virtual_machines.list(rec_res_group_name)
+
+                # Iterate over each virtual machine and get its public IP address
+                for vm in vms:
+                    # Get the network interface for the VM
+                    nic_id = vm.network_profile.network_interfaces[0].id
+                    nic_name = nic_id.split('/')[-1]
+                    nic = network_client.network_interfaces.get(rec_res_group_name, nic_name)
+
+                    # Get the public IP address for the network interface
+                    if nic.ip_configurations[0].public_ip_address:
+                        public_ip_id = nic.ip_configurations[0].public_ip_address.id
+                        public_ip_name = public_ip_id.split('/')[-1]
+                        public_ip_address = network_client.public_ip_addresses.get(rec_res_group_name, public_ip_name)
+                        
+                        import winrm
+
+                        host = str(public_ip_address.ip_address)
+                        user = os.environ["USER"]
+                        password = os.environ["PASSWORD"]
+
+                        try:
+                            session = winrm.Session(host, auth=(user, password), transport='ntlm')
+
+                            file_path = r'C:\Users\azure\Downloads\eShopOnWeb-main\eShopOnWeb-main\src\Web\appsettings.json'
+
+                            cmd = f'if exist "{file_path}" (echo true) else (echo false)'
+                            result = session.run_cmd(cmd)
+
+                            if result.std_out.strip() == b'true':
+                                old_db_name = server_name+'.database.windows.net'
+                                new_db_name = replica_server+'.database.windows.net'
+
+                                cmd = f'Get-Content -Path "{file_path}"'
+                                result = session.run_ps(cmd)
+                                file_contents = result.std_out.decode('utf-8')
+
+                                file_contents = file_contents.replace(old_db_name, new_db_name)
+
+                                cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
+                                session.run_ps(cmd)
+
+                                # Reboot the remote host
+                                cmd = 'Restart-Computer'
+                                session.run_ps(cmd)
+
+                                logging.info('File Updated')
+                                return func.HttpResponse(
+                                    "200",
+                                    status_code=200)
+                            else:
+                                logging.info('File does not exist or access denied')
+                                return func.HttpResponse(f"Hello, {str(e)}. This HTTP triggered function executed successfully.", status_code=400)
+                        except Exception as e:
+                            logging.info(f'An error occurred: {str(e)}')
+                            return func.HttpResponse(f"Hello, {str(e)}. This HTTP triggered function executed successfully.", status_code=400)
     for i in server_list:
         database_a=client.databases.list_by_server(resource_group_name,i)
         for j in database_a:
@@ -116,62 +174,9 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
 
         server_name=None
         replica_server=None
-        failover(resource_client ,client, resource_group_name, location, recovery_region,server_name,replica_server)
+        failover(resource_client ,client, resource_group_name, location, recovery_region,server_name,replica_server,web_client,compute_client,network_client,rec_res_group_name)
         
-        sleep(15)
-        # Get all virtual machines in the resource group
-        vms = compute_client.virtual_machines.list(rec_res_group_name)
-
-        # Iterate over each virtual machine and get its public IP address
-        for vm in vms:
-            # Get the network interface for the VM
-            nic_id = vm.network_profile.network_interfaces[0].id
-            nic_name = nic_id.split('/')[-1]
-            nic = network_client.network_interfaces.get(rec_res_group_name, nic_name)
-
-            # Get the public IP address for the network interface
-            if nic.ip_configurations[0].public_ip_address:
-                public_ip_id = nic.ip_configurations[0].public_ip_address.id
-                public_ip_name = public_ip_id.split('/')[-1]
-                public_ip_address = network_client.public_ip_addresses.get(rec_res_group_name, public_ip_name)
-                
-                import winrm
-
-                host = str(public_ip_address.ip_address)
-                user = os.environ["USER"]
-                password = os.environ["PASSWORD"]
-
-                try:
-                    session = winrm.Session(host, auth=(user, password), transport='ntlm')
-
-                    file_path = r'C:\Users\azure\Downloads\eShopOnWeb-main\eShopOnWeb-main\src\Web\appsettings.json'
-
-                    cmd = f'if exist "{file_path}" (echo true) else (echo false)'
-                    result = session.run_cmd(cmd)
-
-                    if result.std_out.strip() == b'true':
-                        old_db_name = server_name+'.database.windows.net'
-                        new_db_name = replica_server+'.database.windows.net'
-
-                        cmd = f'Get-Content -Path "{file_path}"'
-                        result = session.run_ps(cmd)
-                        file_contents = result.std_out.decode('utf-8')
-
-                        file_contents = file_contents.replace(old_db_name, new_db_name)
-
-                        cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
-                        session.run_ps(cmd)
-
-                        logging.info('File Updated')
-                        return func.HttpResponse(
-                            "200",
-                            status_code=200)
-                    else:
-                        logging.info('File does not exist or access denied')
-                        return func.HttpResponse(f"Hello, {str(e)}. This HTTP triggered function executed successfully.", status_code=400)
-                except Exception as e:
-                    logging.info(f'An error occurred: {str(e)}')
-                    return func.HttpResponse(f"Hello, {str(e)}. This HTTP triggered function executed successfully.", status_code=400)
+        
         return func.HttpResponse(
             "200",
             status_code=200)
