@@ -163,79 +163,79 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                             except Exception as e:
                                 logging.warning(f'An error occurred: {str(e)}')
             # Initialize an empty dictionary to store the mappings
-            ip_mapping = {}
+        ip_mapping = {}
 
-            # Regular expression pattern to match resource names
-            ip_pattern = re.compile(r'^(.*?)(Web)(\d+)-ip$')
+        # Regular expression pattern to match resource names
+        ip_pattern = re.compile(r'^(.*?)(Web)(\d+)-ip$')
 
-            # Loop through each item in the JSON data
-            for item in json1:
-                for resource_type, resources in item.items():
-                    if resource_type == "PUBLIC_IP_ADDRESS":
-                        for resource in resources:
-                            ip_id = resource["cloudResourceReferenceId"]
-                            match = ip_pattern.match(ip_id)
-                            if match:
-                                prefix = match.group(1)
-                                web_app = match.group(2)
-                                number = match.group(3)
-                                
-                                public_ip_id = resource['cloudResourceReferenceId']
-                                public_ip_name = public_ip_id.split('/')[-1]
-                                web_ip = network_client.public_ip_addresses.get(recovery_resource_group, public_ip_name)
-
-                                app_id = f"{prefix}App{number}-ip" if web_app == "Web" else f"{prefix}Web{number}-ip"
-                                if ip_id != app_id and app_id not in ip_mapping.values():
-                                    public_ip_name = app_id.split('/')[-1]
-                                    app_ip = network_client.public_ip_addresses.get(recovery_resource_group, public_ip_name)
-                                    ip_mapping[web_ip] = app_ip
-
-            # Print the generated IP mapping dictionary
-            logging.warning(f"IP Mapping {ip_mapping}")
-
-            for key,value in ip_mapping:
-                logging.warning(f"Logging in {key} to update with {value}")
-                            
-                host = str(key)
-                user = os.environ["USER"]
-                password = os.environ["PASSWORD"]
-
-                try:
-                    session = winrm.Session(host, auth=(user, password), transport='ntlm')
-
-                    file_path = os.environ["FILE_PATH2"]
-
-                    cmd = f'if exist "{file_path}" (echo true) else (echo false)'
-                    result = session.run_cmd(cmd)
-
-                    if result.std_out.strip() == b'true':
-
-                        cmd = f'Get-Content -Path "{file_path}"'
-                        result = session.run_ps(cmd)
-                        file_contents = result.std_out.decode('utf-8')
-                        logging.warning(f"File contents : {file_contents}")
-
-                        # Define the regular expression pattern for an IP address
-                        pattern = r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'
-
-                        # Search for the IP address in the URL
-                        match = re.search(pattern, file_contents)
+        # Loop through each item in the JSON data
+        for item in json1:
+            for resource_type, resources in item.items():
+                if resource_type == "PUBLIC_IP_ADDRESS":
+                    for resource in resources:
+                        ip_id = resource["cloudResourceReferenceId"]
+                        match = ip_pattern.match(ip_id)
                         if match:
-                            # Replace the IP address with the new IP address
-                            new_url = re.sub(pattern, value, file_contents)
-                            print(new_url)
-                        else:
-                            # If no IP address is found, print the original URL
-                            logging.warning(f"No IP Addres Found In The File Path")
+                            prefix = match.group(1)
+                            web_app = match.group(2)
+                            number = match.group(3)
+                            
+                            public_ip_id = resource['cloudResourceReferenceId']
+                            public_ip_name = public_ip_id.split('/')[-1]
+                            web_ip = network_client.public_ip_addresses.get(recovery_resource_group, public_ip_name)
 
-                        cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
-                        session.run_ps(cmd)
+                            app_id = f"{prefix}App{number}-ip" if web_app == "Web" else f"{prefix}Web{number}-ip"
+                            if ip_id != app_id and app_id not in ip_mapping.values():
+                                public_ip_name = app_id.split('/')[-1]
+                                app_ip = network_client.public_ip_addresses.get(recovery_resource_group, public_ip_name)
+                                ip_mapping[web_ip] = app_ip
 
-                        logging.warning('File Updated')
+        # Print the generated IP mapping dictionary
+        logging.warning(f"IP Mapping {ip_mapping}")
+
+        for key,value in ip_mapping:
+            logging.warning(f"Logging in {key} to update with {value}")
+                        
+            host = str(key)
+            user = os.environ["USER"]
+            password = os.environ["PASSWORD"]
+
+            try:
+                session = winrm.Session(host, auth=(user, password), transport='ntlm')
+
+                file_path = os.environ["FILE_PATH2"]
+
+                cmd = f'if exist "{file_path}" (echo true) else (echo false)'
+                result = session.run_cmd(cmd)
+
+                if result.std_out.strip() == b'true':
+
+                    cmd = f'Get-Content -Path "{file_path}"'
+                    result = session.run_ps(cmd)
+                    file_contents = result.std_out.decode('utf-8')
+                    logging.warning(f"File contents : {file_contents}")
+
+                    # Define the regular expression pattern for an IP address
+                    pattern = r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'
+
+                    # Search for the IP address in the URL
+                    match = re.search(pattern, file_contents)
+                    if match:
+                        # Replace the IP address with the new IP address
+                        new_url = re.sub(pattern, value, file_contents)
+                        print(new_url)
                     else:
-                        logging.warning('File does not exist or access denied')
-                except Exception as e:
-                    logging.warning(f'An error occurred: {str(e)}')
+                        # If no IP address is found, print the original URL
+                        logging.warning(f"No IP Addres Found In The File Path")
+
+                    cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
+                    session.run_ps(cmd)
+
+                    logging.warning('File Updated')
+                else:
+                    logging.warning('File does not exist or access denied')
+            except Exception as e:
+                logging.warning(f'An error occurred: {str(e)}')
 
     except Exception as e:
         logging.error(f"Error occurred: {str(e)}")
