@@ -196,7 +196,7 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
         # Print the generated IP mapping dictionary
         logging.warning(f"IP Mapping {ip_mapping}")
 
-        for key,value in ip_mapping:
+        for key,value in ip_mapping.items():
             logging.warning(f"Logging in {key} to update with {value}")
                         
             host = str(key)
