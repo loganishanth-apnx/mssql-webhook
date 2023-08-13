@@ -116,6 +116,7 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
 
         logging.warning(f"Promoted Servers With Replica {sql_dict}")
 
+        logging.warning('Changing DB String In App VM')
         # Iterate over each virtual machine and get its public IP address
         pattern = re.compile(r".*App\d+.*")
 
@@ -130,7 +131,7 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                             public_ip_name = public_ip_id.split('/')[-1]
                             public_ip_address = network_client.public_ip_addresses.get(recovery_resource_group, public_ip_name)
                             
-                            logging.warning(f"Logging in {public_ip_name.split('-')[0]} using {public_ip_address}")
+                            logging.warning(f"Logging in {public_ip_name.split('-')[0]} using {public_ip_address.ip_address}")
                             
                             host = str(public_ip_address.ip_address)
                             user = os.environ["USER"]
@@ -162,7 +163,9 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                                     logging.warning('File does not exist or access denied')
                             except Exception as e:
                                 logging.warning(f'An error occurred: {str(e)}')
-            # Initialize an empty dictionary to store the mappings
+        
+        logging.warning('Changing App Public IP In Web')
+        # Initialize an empty dictionary to store the mappings
         ip_mapping = {}
 
         # Regular expression pattern to match resource names
@@ -188,7 +191,7 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                             if ip_id != app_id and app_id not in ip_mapping.values():
                                 public_ip_name = app_id.split('/')[-1]
                                 app_ip = network_client.public_ip_addresses.get(recovery_resource_group, public_ip_name)
-                                ip_mapping[web_ip] = app_ip
+                                ip_mapping[str(web_ip.ip_address)] = str(app_ip.ip_address)
 
         # Print the generated IP mapping dictionary
         logging.warning(f"IP Mapping {ip_mapping}")
