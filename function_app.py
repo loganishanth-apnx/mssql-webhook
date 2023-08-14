@@ -157,6 +157,8 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                                     logging.warning(f"File contents : {file_contents}")
                                     cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
                                     session.run_ps(cmd)
+                                    cmd = f'Restart-WebAppPool -Name "APPRANIX_myclouditecplatformapi.ciodev.accenture.com"'
+                                    session.run_ps(cmd)
 
                                     logging.warning('File Updated')
                                 else:
@@ -232,6 +234,8 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                         logging.warning(f"No IP Addres Found In The File Path")
 
                     cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
+                    session.run_ps(cmd)
+                    cmd = f'Restart-WebAppPool -Name "APPRANIX_myclouditecplatformapi.ciodev.accenture.com"'
                     session.run_ps(cmd)
 
                     logging.warning('File Updated')
