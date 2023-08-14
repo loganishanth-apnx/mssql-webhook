@@ -152,7 +152,7 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                                     file_contents = result.std_out.decode('utf-8')
                                     logging.warning(f"File contents : {file_contents}")
 
-                                    for key,value in sql_dict:
+                                    for key,value in sql_dict.items():
                                         file_contents = file_contents.replace(key, value)
 
                                     cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
