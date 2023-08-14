@@ -154,7 +154,7 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
 
                                     for key,value in sql_dict.items():
                                         file_contents = file_contents.replace(key, value)
-
+                                    logging.warning(f"File contents : {file_contents}")
                                     cmd = f'Set-Content -Path "{file_path}" -Value @"\n{file_contents}\n"@'
                                     session.run_ps(cmd)
 
@@ -225,8 +225,8 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
                     match = re.search(pattern, file_contents)
                     if match:
                         # Replace the IP address with the new IP address
-                        new_url = re.sub(pattern, value, file_contents)
-                        print(new_url)
+                        file_contents = re.sub(pattern, value, file_contents)
+                        logging.warning(f"File contents : {file_contents}")
                     else:
                         # If no IP address is found, print the original URL
                         logging.warning(f"No IP Addres Found In The File Path")
