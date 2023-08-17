@@ -5,6 +5,7 @@ import logging
 import requests
 import winrm
 import re
+import time
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.mgmt.sql import SqlManagementClient
 from azure.mgmt.compute import ComputeManagementClient
@@ -113,7 +114,7 @@ def HttpTrigger(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse(
                     "200",
                     status_code=200)
-
+        time.sleep(100)
         logging.warning(f"Promoted Servers With Replica {sql_dict}")
 
         logging.warning('Changing DB String In App VM')
